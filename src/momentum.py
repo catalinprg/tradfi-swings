@@ -14,6 +14,17 @@ import pandas as pd
 
 from src.types import OHLC, Timeframe
 
+# ATR-percentile windows picked so "compressed / expanding" means comparable
+# things across TFs. 5m ≈ 1 trading day; 1h ≈ 1 trading week; 1d ≈ 3 months;
+# 1w ≈ 1 year. Quoted in bars of the TF itself.
+ATR_PCT_WINDOW_BY_TF: dict[Timeframe, int] = {
+    "5m": 288,
+    "1h": 168,
+    "1d":  90,
+    "1w":  52,
+}
+ATR_PCT_WINDOW_DEFAULT = 90
+
 
 def _series_from_ohlc(bars: list[OHLC]) -> pd.DataFrame:
     return pd.DataFrame({
@@ -58,10 +69,12 @@ def calc_atr(df: pd.DataFrame, length: int = 14) -> pd.Series:
     return tr.ewm(alpha=1 / length, adjust=False).mean()
 
 
-def _atr_percentile(atr_series: pd.Series, window: int = 90) -> Optional[float]:
+def _atr_percentile(atr_series: pd.Series, window: int = ATR_PCT_WINDOW_DEFAULT) -> Optional[float]:
     """ATR's current value as a percentile of its last `window` values.
     Tells the analyst whether volatility is compressed or expanding for
-    this TF. Returns None if not enough data."""
+    this TF. Returns None if not enough data. Window is calibrated per-TF
+    via ATR_PCT_WINDOW_BY_TF so the label means comparable things across
+    1w and 5m."""
     s = atr_series.dropna()
     if len(s) < 10:
         return None
@@ -96,7 +109,7 @@ def _macd_cross_state(
         return "fresh_bearish" if flipped else "bearish"
 
 
-def compute_tf(bars: list[OHLC]) -> Optional[dict]:
+def compute_tf(bars: list[OHLC], atr_window: int = ATR_PCT_WINDOW_DEFAULT) -> Optional[dict]:
     """Compute RSI/MACD/ATR-percentile for a single TF's OHLC. Returns a
     dict summarizing the latest bar, or None when there isn't enough data
     for the 14-period indicators."""
@@ -116,21 +129,24 @@ def compute_tf(bars: list[OHLC]) -> Optional[dict]:
     atr_latest = atr_series.dropna()
 
     return {
-        "rsi_14":       round(float(rsi_latest.iloc[-1]), 1),
-        "macd_hist":    round(float(hist_latest.iloc[-1]), 6) if not hist_latest.empty else None,
-        "macd_cross":   _macd_cross_state(macd_line, signal_line),
-        "atr_14":       round(float(atr_latest.iloc[-1]), 6) if not atr_latest.empty else None,
-        "atr_percentile_90d": _atr_percentile(atr_series, window=90),
+        "rsi_14":           round(float(rsi_latest.iloc[-1]), 1),
+        "macd_hist":        round(float(hist_latest.iloc[-1]), 6) if not hist_latest.empty else None,
+        "macd_cross":       _macd_cross_state(macd_line, signal_line),
+        "atr_14":           round(float(atr_latest.iloc[-1]), 6) if not atr_latest.empty else None,
+        "atr_percentile":   _atr_percentile(atr_series, window=atr_window),
+        "atr_pct_window":   atr_window,
     }
 
 
 def compute_per_tf(ohlc: dict[Timeframe, list[OHLC]]) -> dict[Timeframe, dict]:
     """Run compute_tf on every TF present in the fetched OHLC map. TFs with
     insufficient data are silently omitted from the output — the analyst
-    checks for presence."""
+    checks for presence. ATR-percentile window is per-TF so the reading is
+    comparable across 5m / 1h / 1d / 1w."""
     out: dict[Timeframe, dict] = {}
     for tf, bars in ohlc.items():
-        m = compute_tf(bars)
+        window = ATR_PCT_WINDOW_BY_TF.get(tf, ATR_PCT_WINDOW_DEFAULT)
+        m = compute_tf(bars, atr_window=window)
         if m is not None:
             out[tf] = m
     return out

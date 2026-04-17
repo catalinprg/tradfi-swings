@@ -34,18 +34,62 @@ FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape"
 FIRECRAWL_BUDGET_PER_RUN = int(os.environ.get("FIRECRAWL_BUDGET_PER_RUN", "10"))
 FIRECRAWL_TIMEOUT = 30   # JS rendering is slow
 
+# Hard paywalls where Firecrawl's free tier reliably fails to unwrap the
+# article. Skip them before burning a call. Editable via
+# FIRECRAWL_PAYWALL_BLOCKLIST env var (comma-separated domains).
+DEFAULT_FIRECRAWL_PAYWALL_BLOCKLIST = (
+    "bloomberg.com",
+    "ft.com",
+    "wsj.com",
+    "nytimes.com",
+    "barrons.com",
+    "economist.com",
+    "theinformation.com",
+    "seekingalpha.com",
+)
+_blocklist_env = os.environ.get("FIRECRAWL_PAYWALL_BLOCKLIST", "").strip()
+FIRECRAWL_PAYWALL_BLOCKLIST: tuple[str, ...] = (
+    tuple(d.strip().lower() for d in _blocklist_env.split(",") if d.strip())
+    if _blocklist_env
+    else DEFAULT_FIRECRAWL_PAYWALL_BLOCKLIST
+)
+# After this many consecutive Firecrawl failures on the same domain within
+# a single run, skip further Firecrawl attempts for that domain — the run
+# budget is limited and one bad publisher shouldn't drain it. trafilatura
+# still gets tried upstream.
+FIRECRAWL_DOMAIN_FAILURE_THRESHOLD = 2
+
 # Module-level counter decremented on every Firecrawl call. Reset per run
 # by the caller (emit_macro initializes macro_context then calls extract
 # in a threadpool; emit_macro invocation = new run = counter resets via
 # reset_firecrawl_budget).
 _firecrawl_remaining = FIRECRAWL_BUDGET_PER_RUN
+_firecrawl_domain_failures: dict[str, int] = {}
 
 
 def reset_firecrawl_budget():
-    """Reset the per-run Firecrawl call budget. Called by emit_macro at
-    the start of each run."""
+    """Reset the per-run Firecrawl call budget + per-domain failure counter.
+    Called by emit_macro at the start of each run."""
     global _firecrawl_remaining
     _firecrawl_remaining = FIRECRAWL_BUDGET_PER_RUN
+    _firecrawl_domain_failures.clear()
+
+
+def _domain_of(url: str) -> str:
+    """Bare host of `url` (no subdomain trim — subdomain-specific paywalls
+    get their own count). Lowercased. Empty string on parse failure."""
+    try:
+        from urllib.parse import urlparse
+        return (urlparse(url).netloc or "").lower()
+    except Exception:
+        return ""
+
+
+def _is_paywall_domain(url: str) -> bool:
+    host = _domain_of(url)
+    if not host:
+        return False
+    return any(host == d or host.endswith("." + d) for d in FIRECRAWL_PAYWALL_BLOCKLIST)
 
 TIMEOUT = 10
 MAX_CHARS = 1500
@@ -135,9 +179,18 @@ def _extract_with_trafilatura(url: str) -> Optional[str]:
 def _extract_with_firecrawl(url: str) -> Optional[str]:
     """Fallback via Firecrawl /v1/scrape. Handles JS rendering and
     paywall interstitials that trafilatura can't bypass. Returns
-    markdown-formatted content or None."""
+    markdown-formatted content or None.
+
+    Budget-aware: skips the call entirely when (a) the domain is a
+    known hard paywall, (b) the per-run call budget is exhausted, or
+    (c) we've already failed this domain too many times in this run."""
     global _firecrawl_remaining
     if not FIRECRAWL_API_KEY or _firecrawl_remaining <= 0:
+        return None
+    if _is_paywall_domain(url):
+        return None
+    host = _domain_of(url)
+    if host and _firecrawl_domain_failures.get(host, 0) >= FIRECRAWL_DOMAIN_FAILURE_THRESHOLD:
         return None
     try:
         r = requests.post(
@@ -156,13 +209,19 @@ def _extract_with_firecrawl(url: str) -> Optional[str]:
         )
         _firecrawl_remaining -= 1
         if r.status_code >= 400:
+            if host:
+                _firecrawl_domain_failures[host] = _firecrawl_domain_failures.get(host, 0) + 1
             return None
         data = r.json()
         md = ((data.get("data") or {}).get("markdown") or "").strip()
         if len(md) < MIN_MEANINGFUL_CHARS or _looks_like_consent_page(md):
+            if host:
+                _firecrawl_domain_failures[host] = _firecrawl_domain_failures.get(host, 0) + 1
             return None
         return _truncate(md)
     except Exception:
+        if host:
+            _firecrawl_domain_failures[host] = _firecrawl_domain_failures.get(host, 0) + 1
         return None
 
 

@@ -15,7 +15,7 @@
 #   - `relevance_terms`   → substrings the analyst uses to filter macro_context
 #                           down to this instrument.
 #
-# Every instrument uses the same 5-TF set: 5m, 1h, 4h, 1d, 1w.
+# Every instrument uses the same 4-TF set: 5m, 1h, 1d, 1w.
 
 instruments:
   # Forex majors

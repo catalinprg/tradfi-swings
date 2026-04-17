@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-Timeframe = Literal["1w", "1d", "4h", "1h", "5m"]
+Timeframe = Literal["1w", "1d", "1h", "5m"]
 SwingDirection = Literal["up", "down"]
 LevelKind = Literal["retracement", "extension"]
 
@@ -42,7 +42,7 @@ class Zone:
     def mid(self) -> float:
         return (self.min_price + self.max_price) / 2
 
-TF_WEIGHTS: dict[Timeframe, int] = {"1w": 5, "1d": 4, "4h": 3, "1h": 2, "5m": 1}
+TF_WEIGHTS: dict[Timeframe, int] = {"1w": 5, "1d": 4, "1h": 2, "5m": 1}
 LEVEL_WEIGHTS: dict[float, int] = {
     0.236: 1, 0.382: 2, 0.5: 3, 0.618: 3, 0.786: 2, 1.272: 2, 1.618: 3,
 }

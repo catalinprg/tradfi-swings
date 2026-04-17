@@ -82,7 +82,7 @@ def build(slug: str) -> dict:
     asset_class = instr_cfg["asset_class"]
 
     # 1. OHLC
-    ohlc, skipped = fetch_all(symbol)
+    ohlc, skipped = fetch_all(symbol, asset_class=asset_class)
     if not ohlc or "1d" not in ohlc:
         raise SystemExit(
             f"fatal: no daily bars available for {symbol} "

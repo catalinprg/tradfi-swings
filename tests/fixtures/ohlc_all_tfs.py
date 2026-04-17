@@ -20,7 +20,6 @@ def synthetic_all() -> dict[Timeframe, list[OHLC]]:
     return {
         "1w": synthetic("1w", 104, seed=1),
         "1d": synthetic("1d", 200, seed=2),
-        "4h": synthetic("4h", 300, seed=3),
         "1h": synthetic("1h", 500, seed=4),
         "5m": synthetic("5m", 500, seed=5),
     }

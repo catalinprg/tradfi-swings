@@ -8,7 +8,7 @@ Mirrors the architecture of `catalinprg/btc-swings` / `catalinprg/eth-swings` bu
 - **No derivatives** — replaced with a `market_context` module (VIX + DXY) and per-TF momentum (RSI / MACD / ATR-percentile).
 - **Per-instrument loop** — one repo, one skill, iterates over `config/watchlist.yaml`.
 - **Two-phase orchestration** — once-per-run macro fetch (news + calendar) → per-instrument technical pipeline.
-- **Timeframes:** `5m, 1h, 4h, 1d, 1w` (1M dropped; 5m added for intraday structure).
+- **Timeframes:** `5m, 1h, 1d, 1w` (1M dropped; 4h dropped because yfinance has no native 4h interval and client-resampled 4h bars cross equity sessions; 5m added for intraday structure).
 
 ## Watchlist (config/watchlist.yaml)
 
@@ -70,6 +70,7 @@ Full-Romanian. Five sections per instrument:
 - `MARKETAUX_API_KEY` — forex + commodity news. Optional (falls back to RSS if unset).
 - `FIRECRAWL_API_KEY` — article-content extraction fallback when trafilatura fails (JS-rendered pages, paywall interstitials). Optional. Without it, only trafilatura-extractable articles gain `content`; the agent still falls back to headline + summary for the rest.
 - `FIRECRAWL_BUDGET_PER_RUN` — cap on Firecrawl calls per pipeline run (default `10`). Prevents blowing the free-tier quota on a bad-extraction day.
+- `ALPHAVANTAGE_API_KEY` — fallback for the VIX + DXY market-context snapshot when yfinance returns empty. Uses Alpha Vantage's `TIME_SERIES_DAILY` on ETF proxies (defaults: `VIXY` for VIX, `UUP` for DXY). Override the proxies via `ALPHAVANTAGE_VIX_SYMBOL` / `ALPHAVANTAGE_DXY_SYMBOL` if needed. Optional; market_context fails soft without it.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — optional; notification degrades silently if unset.
 
 yfinance (OHLC) is keyless. The economic calendar is served by this repo's own `data-mirror/ff_calendar_thisweek.json`, refreshed every 4 hours by `.github/workflows/update-calendar.yml` pulling from `nfs.faireconomy.media`. The repo must be **public** because Claude Code cloud sessions read from `raw.githubusercontent.com` unauthenticated.
@@ -88,6 +89,7 @@ uv pip install --system yfinance pandas numpy requests PyYAML feedparser trafila
 - `api.marketaux.com` — forex/commodity news API
 - `news.google.com` — RSS fallback
 - `raw.githubusercontent.com` — economic calendar mirror
+- `www.alphavantage.co` — market-context fallback (optional)
 - `api.notion.com`
 - `api.telegram.org`
 - **Article-content extraction** reaches into many news publisher domains (Reuters, CNBC, Bloomberg, FT, FXStreet, Yahoo Finance, etc.). On a restricted-allowlist env, extraction fails silently and the agent falls back to headline + summary. On a full-trust env, extraction lands 70–90% of articles depending on publisher paywalls.

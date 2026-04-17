@@ -55,14 +55,15 @@ def test_compute_tf_happy_path_trending_up():
     assert out["rsi_14"] > 70  # steady uptrend
     assert out["macd_cross"] in {"bullish", "fresh_bullish"}
     assert out["atr_14"] > 0
-    assert out["atr_percentile_90d"] is None or 0 <= out["atr_percentile_90d"] <= 100
+    assert out["atr_percentile"] is None or 0 <= out["atr_percentile"] <= 100
+    assert out["atr_pct_window"] >= 10
 
 
 def test_compute_per_tf_runs_for_every_tf_with_enough_bars():
     bars = _bars([100 + i * 0.2 for i in range(60)])
-    ohlc = {"1w": bars, "1d": bars, "4h": _bars([100.0] * 5)}  # 4h too short
+    ohlc = {"1w": bars, "1d": bars, "1h": _bars([100.0] * 5)}  # 1h too short
     out = momentum.compute_per_tf(ohlc)
-    assert set(out.keys()) == {"1w", "1d"}  # 4h omitted
+    assert set(out.keys()) == {"1w", "1d"}  # 1h omitted
 
 
 def test_macd_cross_state_detects_fresh_flip():
