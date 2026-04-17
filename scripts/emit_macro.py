@@ -60,6 +60,7 @@ def _enrich_with_content(items: list[dict]) -> list[dict]:
 
 def build() -> dict:
     watchlist = _load_watchlist()
+    article_extract_mod.reset_firecrawl_budget()
 
     per_instrument: dict[str, dict] = {}
     # Collect every news item across all instruments so we can fan out

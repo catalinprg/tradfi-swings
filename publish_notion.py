@@ -21,6 +21,7 @@ Exits non-zero on failure, prints error to stderr.
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -30,6 +31,57 @@ NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 NOTION_VERSION = "2022-06-28"
 API_BASE = "https://api.notion.com/v1"
 BATCH = 100
+RETRY_DELAY_SEC = 10
+HTTP_TIMEOUT = 30
+
+
+def _post_with_retry(url, *, json):
+    """POST with one retry after 10s on transient failures (connection
+    errors, timeouts, HTTP 429, HTTP 5xx). 4xx other than 429 is
+    permanent — retry won't help. Returns the final Response."""
+    for attempt in range(2):
+        try:
+            r = requests.post(url, headers=_headers(), json=json, timeout=HTTP_TIMEOUT)
+        except requests.RequestException as e:
+            if attempt == 0:
+                print(f"notion POST transient: {e}; retrying in {RETRY_DELAY_SEC}s", file=sys.stderr)
+                time.sleep(RETRY_DELAY_SEC)
+                continue
+            raise
+        if r.status_code < 400 or (400 <= r.status_code < 500 and r.status_code != 429):
+            return r
+        # 429 or 5xx — transient
+        if attempt == 0:
+            print(
+                f"notion POST transient HTTP {r.status_code}; retrying in {RETRY_DELAY_SEC}s",
+                file=sys.stderr,
+            )
+            time.sleep(RETRY_DELAY_SEC)
+            continue
+        return r
+
+
+def _patch_with_retry(url, *, json):
+    """PATCH version of _post_with_retry (append_children uses PATCH)."""
+    for attempt in range(2):
+        try:
+            r = requests.patch(url, headers=_headers(), json=json, timeout=HTTP_TIMEOUT)
+        except requests.RequestException as e:
+            if attempt == 0:
+                print(f"notion PATCH transient: {e}; retrying in {RETRY_DELAY_SEC}s", file=sys.stderr)
+                time.sleep(RETRY_DELAY_SEC)
+                continue
+            raise
+        if r.status_code < 400 or (400 <= r.status_code < 500 and r.status_code != 429):
+            return r
+        if attempt == 0:
+            print(
+                f"notion PATCH transient HTTP {r.status_code}; retrying in {RETRY_DELAY_SEC}s",
+                file=sys.stderr,
+            )
+            time.sleep(RETRY_DELAY_SEC)
+            continue
+        return r
 
 COMPACT_TS_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$")
 
@@ -208,7 +260,7 @@ def create_page(title, children, parent_page_id):
         },
         "children": children,
     }
-    r = requests.post(f"{API_BASE}/pages", headers=_headers(), json=payload, timeout=30)
+    r = _post_with_retry(f"{API_BASE}/pages", json=payload)
     if r.status_code >= 400:
         raise RuntimeError(f"create_page failed {r.status_code}: {r.text}")
     data = r.json()
@@ -216,11 +268,9 @@ def create_page(title, children, parent_page_id):
 
 
 def append_children(page_id, children):
-    r = requests.patch(
+    r = _patch_with_retry(
         f"{API_BASE}/blocks/{page_id}/children",
-        headers=_headers(),
         json={"children": children},
-        timeout=30,
     )
     if r.status_code >= 400:
         raise RuntimeError(f"append_children failed {r.status_code}: {r.text}")

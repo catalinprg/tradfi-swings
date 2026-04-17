@@ -1,18 +1,24 @@
 """Extract main article text from a URL.
 
-Uses `trafilatura` — robust against ads, nav, paywalls headers, and
-handles most major news sites (Reuters, CNBC, Bloomberg snippets, FT
-preview paragraphs, FXStreet, etc.) without JS rendering.
+Primary path: `trafilatura` — handles most non-JS news sites (Reuters,
+CNBC, FT preview, FXStreet, etc.) without rendering.
+
+Fallback path: Firecrawl — handles JS rendering, paywall interstitials,
+and sites where trafilatura returns nothing. Only used when trafilatura
+fails AND a `FIRECRAWL_API_KEY` is set AND the per-run budget is not
+exhausted. The budget (FIRECRAWL_BUDGET_PER_RUN) exists to avoid
+blowing the free-tier quota on a bad-extraction day.
 
 Extracted content is truncated to MAX_CHARS so 45 articles per run
 don't bloat macro_context.json. 1500 chars typically covers the lead
-+ first two body paragraphs, which is where the "what happened"
-information lives. The agent gets enough to paraphrase, not enough to
-quote verbatim (good — avoids copyright drift).
++ first two body paragraphs — enough for the agent to paraphrase, not
+enough to quote verbatim (good — avoids copyright drift).
 
-Failures (paywalls, 403s, timeouts) return None. Callers treat that
-as "content unavailable, fall back to headline + summary".
+Failures (paywalls we can't bypass, 403s, timeouts) return None.
+Callers treat that as "content unavailable, fall back to headline
++ summary".
 """
+import os
 from typing import Optional
 
 import requests
@@ -22,6 +28,24 @@ try:
     _TRAFILATURA_AVAILABLE = True
 except ImportError:
     _TRAFILATURA_AVAILABLE = False
+
+FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
+FIRECRAWL_ENDPOINT = "https://api.firecrawl.dev/v1/scrape"
+FIRECRAWL_BUDGET_PER_RUN = int(os.environ.get("FIRECRAWL_BUDGET_PER_RUN", "10"))
+FIRECRAWL_TIMEOUT = 30   # JS rendering is slow
+
+# Module-level counter decremented on every Firecrawl call. Reset per run
+# by the caller (emit_macro initializes macro_context then calls extract
+# in a threadpool; emit_macro invocation = new run = counter resets via
+# reset_firecrawl_budget).
+_firecrawl_remaining = FIRECRAWL_BUDGET_PER_RUN
+
+
+def reset_firecrawl_budget():
+    """Reset the per-run Firecrawl call budget. Called by emit_macro at
+    the start of each run."""
+    global _firecrawl_remaining
+    _firecrawl_remaining = FIRECRAWL_BUDGET_PER_RUN
 
 TIMEOUT = 10
 MAX_CHARS = 1500
@@ -72,16 +96,15 @@ def _looks_like_consent_page(text: str) -> bool:
     return False
 
 
-def extract(url: str) -> Optional[str]:
-    """Fetch `url` and return the cleaned main-article text, truncated
-    to MAX_CHARS. Returns None on any failure or when the response is
-    clearly a consent/redirect wrapper rather than article content."""
-    if not _TRAFILATURA_AVAILABLE or not url:
-        return None
-    if _is_blocked_host(url):
-        # Google News RSS wrappers, etc. — fetching lands on a consent
-        # page; the agent gets nothing useful. Skip upfront.
-        return None
+def _truncate(text: str) -> str:
+    text = text.strip()
+    if len(text) > MAX_CHARS:
+        text = text[:MAX_CHARS].rsplit(" ", 1)[0] + "…"
+    return text
+
+
+def _extract_with_trafilatura(url: str) -> Optional[str]:
+    """Primary-path extraction. Returns cleaned text or None on failure."""
     try:
         r = requests.get(
             url,
@@ -89,7 +112,6 @@ def extract(url: str) -> Optional[str]:
             timeout=TIMEOUT,
             allow_redirects=True,
         )
-        # If we got redirected to a consent wrapper, treat as failure.
         if _is_blocked_host(r.url):
             return None
         if r.status_code >= 400:
@@ -103,12 +125,62 @@ def extract(url: str) -> Optional[str]:
         if not text:
             return None
         text = text.strip()
-        if len(text) < MIN_MEANINGFUL_CHARS:
+        if len(text) < MIN_MEANINGFUL_CHARS or _looks_like_consent_page(text):
             return None
-        if _looks_like_consent_page(text):
-            return None
-        if len(text) > MAX_CHARS:
-            text = text[:MAX_CHARS].rsplit(" ", 1)[0] + "…"
-        return text
+        return _truncate(text)
     except Exception:
         return None
+
+
+def _extract_with_firecrawl(url: str) -> Optional[str]:
+    """Fallback via Firecrawl /v1/scrape. Handles JS rendering and
+    paywall interstitials that trafilatura can't bypass. Returns
+    markdown-formatted content or None."""
+    global _firecrawl_remaining
+    if not FIRECRAWL_API_KEY or _firecrawl_remaining <= 0:
+        return None
+    try:
+        r = requests.post(
+            FIRECRAWL_ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {FIRECRAWL_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "url": url,
+                "formats": ["markdown"],
+                "onlyMainContent": True,
+                "waitFor": 2000,
+            },
+            timeout=FIRECRAWL_TIMEOUT,
+        )
+        _firecrawl_remaining -= 1
+        if r.status_code >= 400:
+            return None
+        data = r.json()
+        md = ((data.get("data") or {}).get("markdown") or "").strip()
+        if len(md) < MIN_MEANINGFUL_CHARS or _looks_like_consent_page(md):
+            return None
+        return _truncate(md)
+    except Exception:
+        return None
+
+
+def extract(url: str) -> Optional[str]:
+    """Fetch `url` and return cleaned main-article text, truncated to
+    MAX_CHARS. Tries trafilatura first, then Firecrawl as a fallback if
+    a FIRECRAWL_API_KEY is set and the per-run budget is not exhausted.
+    Returns None when both paths fail or when the URL is a known
+    redirect/consent wrapper."""
+    if not _TRAFILATURA_AVAILABLE or not url:
+        return None
+    if _is_blocked_host(url):
+        # Google News RSS wrappers etc. — fetching lands on a consent
+        # page; even Firecrawl usually can't unwrap those. Skip upfront.
+        return None
+
+    text = _extract_with_trafilatura(url)
+    if text:
+        return text
+
+    return _extract_with_firecrawl(url)

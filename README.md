@@ -68,6 +68,8 @@ Full-Romanian. Five sections per instrument:
 - `NOTION_TOKEN` — Notion Internal Integration Token. Each per-asset parent page (listed under `notion_parent` in `config/watchlist.yaml`) must be shared with the integration. Sharing the top-level TradFI page with the integration propagates access to all children automatically.
 - `FINNHUB_API_KEY` — equity news. Optional (falls back to RSS for stocks if unset).
 - `MARKETAUX_API_KEY` — forex + commodity news. Optional (falls back to RSS if unset).
+- `FIRECRAWL_API_KEY` — article-content extraction fallback when trafilatura fails (JS-rendered pages, paywall interstitials). Optional. Without it, only trafilatura-extractable articles gain `content`; the agent still falls back to headline + summary for the rest.
+- `FIRECRAWL_BUDGET_PER_RUN` — cap on Firecrawl calls per pipeline run (default `10`). Prevents blowing the free-tier quota on a bad-extraction day.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — optional; notification degrades silently if unset.
 
 yfinance (OHLC) is keyless. The economic calendar is served by this repo's own `data-mirror/ff_calendar_thisweek.json`, refreshed every 4 hours by `.github/workflows/update-calendar.yml` pulling from `nfs.faireconomy.media`. The repo must be **public** because Claude Code cloud sessions read from `raw.githubusercontent.com` unauthenticated.
