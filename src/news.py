@@ -35,9 +35,9 @@ RSS_MAX_RETRIES = 3
 def _http_get(url: str, headers: Optional[dict] = None, timeout: int = HTTP_TIMEOUT) -> Optional[requests.Response]:
     """GET with exponential backoff on 5xx responses AND transient network
     errors. Returns the final Response (possibly still 5xx) or None if every
-    attempt raised. Matches the pattern in financial-briefing — a plain
-    `return requests.get(...)` would miss 5xx bodies because requests does
-    not raise on them."""
+    attempt raised. A plain `return requests.get(...)` would miss 5xx bodies
+    because requests does not raise on them — hence the explicit status
+    check before returning."""
     resp: Optional[requests.Response] = None
     for attempt in range(HTTP_MAX_RETRIES):
         try:

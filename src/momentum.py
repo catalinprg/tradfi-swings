@@ -1,9 +1,8 @@
 """Momentum indicators (RSI, MACD, ATR-percentile) per timeframe.
 
-Formulas lifted from catalinprg/financial-briefing's fetch_market.py
-(unchanged — same Wilder smoothing for RSI, same 12/26/9 MACD defaults,
-same EWM-ATR). Wrapped with a per-TF driver so the tradfi analyst sees
-the same indicator row for every TF in the payload.
+Standard formulas: Wilder-smoothed RSI(14), MACD(12, 26, 9), EWM ATR(14).
+Wrapped with a per-TF driver so the tradfi analyst sees one indicator
+row for every TF in the payload.
 
 ATR is already computed in src/swings.py as a list of rolling values
 for the clustering radius. This module re-derives its own ATR series via
@@ -26,7 +25,7 @@ def _series_from_ohlc(bars: list[OHLC]) -> pd.DataFrame:
 
 
 def calc_rsi(series: pd.Series, length: int = 14) -> pd.Series:
-    """Wilder-smoothed RSI (matches financial-briefing)."""
+    """Wilder-smoothed RSI."""
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)

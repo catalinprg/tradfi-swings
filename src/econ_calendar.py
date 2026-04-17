@@ -1,11 +1,11 @@
 """Economic calendar loader.
 
 Reads from this repo's own GitHub-hosted mirror
-(`data-mirror/ff_calendar_thisweek.json`), refreshed every 4h by a GHA
-workflow pulling Forex Factory's public JSON. The repo is public — same
-pattern as catalinprg/financial-briefing, originally adopted because
-`nfs.faireconomy.media` is not consistently reachable from Claude Code
-cloud sessions whereas `raw.githubusercontent.com` is.
+(`data-mirror/ff_calendar_thisweek.json`), refreshed every 4h by the
+`update-calendar.yml` GHA workflow pulling Forex Factory's public JSON.
+The repo is public because `nfs.faireconomy.media` is not consistently
+reachable from Claude Code cloud sessions; `raw.githubusercontent.com`
+is, and public raw URLs don't require auth.
 
 Returned events include only high/medium impact in the next 48h; agent
 filters further by `country` / `title` against a watchlist row's
