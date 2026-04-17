@@ -27,6 +27,7 @@ from pathlib import Path
 import yaml
 
 from src import market_context as market_context_mod
+from src import momentum as momentum_mod
 from src.confluence import cluster, split_by_price
 from src.fetch import fetch_all
 from src.fibs import compute_all
@@ -124,8 +125,9 @@ def build(slug: str) -> dict:
     prev_close = daily_bars[-2].close if len(daily_bars) >= 2 else current_price
     change_24h_pct = (current_price - prev_close) / prev_close * 100 if prev_close else 0.0
 
-    # 6. Market context (VIX + DXY)
+    # 6. Market context (VIX + DXY) + per-TF momentum (RSI / MACD / ATR pct)
     ctx = market_context_mod.fetch()
+    momentum = momentum_mod.compute_per_tf(ohlc)
 
     # 7. Serialize
     decimals = _price_decimals(asset_class, current_price)
@@ -155,6 +157,7 @@ def build(slug: str) -> dict:
         "resistance": [z_to_dict(z) for z in resistance[:MAX_ZONES_PER_SIDE]],
         "support": [z_to_dict(z) for z in support[:MAX_ZONES_PER_SIDE]],
         "market_context": ctx,
+        "momentum": momentum,
     }
 
 

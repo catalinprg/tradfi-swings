@@ -6,26 +6,46 @@
 #   - data/{slug}/briefing.md
 #   - Notion page title uses `display`
 #
-# `asset_class` informs agent reasoning (VIX/DXY weightings differ by class).
+# News source preferences per instrument:
+#   - `finnhub_symbol`    → Finnhub company-news endpoint (US equities only)
+#   - `marketaux_symbol`  → MARKETAUX /news/all (forex, commodities)
+#   - `rss_query`         → Google News RSS fallback (indices, anything without
+#                           a better source). Also used as the fallback when
+#                           Finnhub / MARKETAUX return nothing fresh.
+#   - `relevance_terms`   → substrings the analyst uses to filter macro_context
+#                           down to this instrument.
+#
 # Every instrument uses the same 5-TF set: 5m, 1h, 4h, 1d, 1w.
 
 instruments:
-  # Forex majors (yfinance forex feed — EURUSD=X convention)
+  # Forex majors
   eurusd:
     symbol: "EURUSD=X"
     display: "EUR/USD"
     asset_class: "forex"
     notion_parent: "345b7f28c04480d7a186c8786eab95c4"
+    finnhub_symbol: null
+    marketaux_symbol: "EURUSD"
+    rss_query: "euro dollar EUR USD exchange rate today"
+    relevance_terms: ["EUR/USD", "EURUSD", "euro dollar", "euro-dollar", "ECB"]
   gbpusd:
     symbol: "GBPUSD=X"
     display: "GBP/USD"
     asset_class: "forex"
     notion_parent: "345b7f28c04480f0a102fe4c0321c8cf"
+    finnhub_symbol: null
+    marketaux_symbol: "GBPUSD"
+    rss_query: "pound dollar GBP USD exchange rate today"
+    relevance_terms: ["GBP/USD", "GBPUSD", "pound dollar", "sterling", "BoE", "Bank of England"]
   usdjpy:
     symbol: "USDJPY=X"
     display: "USD/JPY"
     asset_class: "forex"
     notion_parent: "345b7f28c04480f99b04c9b60d5d9ac8"
+    finnhub_symbol: null
+    marketaux_symbol: "USDJPY"
+    rss_query: "dollar yen USD JPY exchange rate today"
+    relevance_terms: ["USD/JPY", "USDJPY", "dollar yen", "yen", "BoJ", "Bank of Japan"]
 
   # Commodities
   gold:
@@ -33,11 +53,28 @@ instruments:
     display: "Gold"
     asset_class: "commodity"
     notion_parent: "345b7f28c044806fa7a4deb6d1105730"
+    finnhub_symbol: null
+    marketaux_symbol: "XAUUSD"
+    rss_query: "gold price today XAU"
+    relevance_terms: ["gold", "XAU", "bullion"]
+  silver:
+    symbol: "SI=F"
+    display: "Silver"
+    asset_class: "commodity"
+    notion_parent: null   # user to create parent page and paste ID
+    finnhub_symbol: null
+    marketaux_symbol: "XAGUSD"
+    rss_query: "silver price today XAG"
+    relevance_terms: ["silver", "XAG"]
   oil:
     symbol: "CL=F"
     display: "Oil (WTI)"
     asset_class: "commodity"
     notion_parent: "345b7f28c04480f1b28fedc762123c41"
+    finnhub_symbol: null
+    marketaux_symbol: "USOIL"
+    rss_query: "crude oil WTI price today"
+    relevance_terms: ["crude", "WTI", "oil price", "oil futures", "OPEC"]
 
   # US indices
   spx:
@@ -45,33 +82,39 @@ instruments:
     display: "S&P 500"
     asset_class: "index"
     notion_parent: "345b7f28c044807b84a4dfc36c3079f1"
+    finnhub_symbol: null
+    marketaux_symbol: null
+    rss_query: "S&P 500 index today"
+    relevance_terms: ["S&P 500", "S&P500", "SPX", "GSPC", "Fed", "FOMC"]
   ndx:
     symbol: "^NDX"
     display: "Nasdaq 100"
     asset_class: "index"
     notion_parent: "345b7f28c0448027bd7adb70a697dbbb"
+    finnhub_symbol: null
+    marketaux_symbol: null
+    rss_query: "Nasdaq 100 NDX index today"
+    relevance_terms: ["Nasdaq", "NDX", "QQQ"]
   dji:
     symbol: "^DJI"
     display: "Dow Jones"
     asset_class: "index"
     notion_parent: "345b7f28c04480b79e0df899a1912afc"
+    finnhub_symbol: null
+    marketaux_symbol: null
+    rss_query: "Dow Jones industrial average today"
+    relevance_terms: ["Dow Jones", "DJIA", "Dow"]
 
   # European indices
-  stoxx50:
-    symbol: "^STOXX50E"
-    display: "EuroStoxx 50"
-    asset_class: "index"
-    notion_parent: "345b7f28c0448007a795eb392a62a697"
-  ftse:
-    symbol: "^FTSE"
-    display: "FTSE 100"
-    asset_class: "index"
-    notion_parent: "345b7f28c04480a89c7fef76c8a071d2"
   dax:
     symbol: "^GDAXI"
     display: "DAX"
     asset_class: "index"
     notion_parent: "345b7f28c0448059a4e7c38cf060b5b9"
+    finnhub_symbol: null
+    marketaux_symbol: null
+    rss_query: "DAX Germany stock index today"
+    relevance_terms: ["DAX", "GDAXI", "Germany"]
 
   # Stocks
   aapl:
@@ -79,20 +122,51 @@ instruments:
     display: "Apple"
     asset_class: "stock"
     notion_parent: "345b7f28c044800795c9ff58f2534916"
+    finnhub_symbol: "AAPL"
+    marketaux_symbol: null
+    rss_query: "Apple AAPL stock news"
+    relevance_terms: ["Apple", "AAPL"]
   nvda:
     symbol: "NVDA"
     display: "Nvidia"
     asset_class: "stock"
     notion_parent: "345b7f28c044804dbd5fcd49aa006adb"
+    finnhub_symbol: "NVDA"
+    marketaux_symbol: null
+    rss_query: "NVIDIA NVDA stock news"
+    relevance_terms: ["NVIDIA", "NVDA"]
   msft:
     symbol: "MSFT"
     display: "Microsoft"
     asset_class: "stock"
     notion_parent: "345b7f28c04480649b0cc4c615d07006"
+    finnhub_symbol: "MSFT"
+    marketaux_symbol: null
+    rss_query: "Microsoft MSFT stock news"
+    relevance_terms: ["Microsoft", "MSFT"]
+  tsla:
+    symbol: "TSLA"
+    display: "Tesla"
+    asset_class: "stock"
+    notion_parent: null   # user to create parent page and paste ID
+    finnhub_symbol: "TSLA"
+    marketaux_symbol: null
+    rss_query: "Tesla TSLA stock news"
+    relevance_terms: ["Tesla", "TSLA"]
+  amzn:
+    symbol: "AMZN"
+    display: "Amazon"
+    asset_class: "stock"
+    notion_parent: null   # user to create parent page and paste ID
+    finnhub_symbol: "AMZN"
+    marketaux_symbol: null
+    rss_query: "Amazon AMZN stock news"
+    relevance_terms: ["Amazon", "AMZN"]
 
 # Market-wide context tickers fetched once per run and attached to every
 # instrument payload as `market_context`. Agent uses them for positioning
-# adjustments analogous to crypto funding/liquidation signals.
+# adjustments (class-specific). Lives outside `instruments:` so they are
+# never published as their own briefings.
 context:
   vix:
     symbol: "^VIX"
