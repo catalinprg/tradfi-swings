@@ -65,6 +65,23 @@ You do not run the pipeline; you interpret both files together and write the bri
     "1d": {...},
     "1h": {...},
     "5m": {...}
+  },
+  "liquidity": {
+    "buy_side": [
+      {
+        "price":           float,        // representative level (top of cluster for BSL)
+        "price_range":     [min, max],
+        "type":            "BSL",        // stops above a swing high
+        "touches":         int,          // number of swing highs in the cluster
+        "tfs":             ["1w", "1d"], // contributing TFs, highest-weight first
+        "most_recent_ts":  int,          // ms since epoch
+        "age_hours":       int,
+        "swept":           bool,         // did price trade beyond since formation
+        "distance_pct":    float,        // signed vs current_price (+ve = above)
+        "strength_score":  int           // TF_WEIGHTS sum × touches
+      }
+    ],
+    "sell_side": [ /* same shape, type "SSL", distance_pct negative */ ]
   }
 }
 ```
@@ -239,6 +256,31 @@ When a qualifying event exists:
 
 **Differentiate.** If every bullet lands on "puternică", re-rank. Do NOT list the contributing fibs in the bullet — `contributing_levels` stays in the payload for your own reasoning.
 
+### Liquidity pools (separate layer from fib confluence)
+
+The `liquidity` section of the payload lists stop-cluster proxies derived from swing pivots — **buy-side liquidity** (BSL, above swing highs where long stops and short entries rest) and **sell-side liquidity** (SSL, below swing lows). Price is drawn toward unswept pools; swept pools are spent.
+
+This is a **second, orthogonal signal** — do NOT merge it into the `confluență` label. That label stays reserved for structural fib agreement. Liquidity gets its own treatment:
+
+**1. Pool overlaps a fib zone** (pool `price` is inside a listed Rezistență/Suport zone's `min_price`–`max_price`, OR within one `daily_atr` of it):
+- Append a compact tag to that zone's bullet: `· BSL-pool ~Nh` (or `· SSL-pool ~Nh`).
+- If `swept == true`, append `(swept)` — still worth mentioning, but the pull is spent.
+- Stack with touches when notable: `· BSL-pool 3× 1w+1d` when `touches >= 3` and a high-TF contributes.
+
+**2. Pool sits alone in dead space** (no fib zone within `daily_atr`, and `swept == false`, and in the top 2 of its side by `strength_score`):
+- Emit under a new `### Zone de liquidity` section between Suport and Catalizatori.
+- Format: `- **{price}** (±X.X%) — BSL unswept · 1w+1d · Nx touches · ~Nh`.
+- Use **magnet language**, not S/R language: *"zona de liquidity de la {price} poate atrage prețul ca țintă"* — never *"suport puternic"*.
+- **Asset-class caveat.** For `forex` and `commodity` classes specifically, use softer wording: *"potențial magnet de liquidity"* (there's no consolidated tape on FX, so the pool is more hypothetical than on equities/indices). For `index` and `stock`, `magnet de liquidity` is fine.
+- Skip `swept == true` pools from this section entirely.
+- Cap: 2 bullets max. Omit the section silently when nothing qualifies.
+
+**3. Conflicts between pool and fib zone** (e.g. strong BSL pool just above a Rezistență zone): do NOT downgrade the confluență tier. Optionally note the pull direction in Pe scurt: *"o pool BSL peste zonă poate menține presiunea ascendentă până la sweep"*. Otherwise stay silent.
+
+**Ranking.** Always prefer unswept. Prefer top-2 strength per side. Skip `age_hours > 720` (~30 days) unless strength_score clearly dominates — very old pools often reflect structure that has since moved.
+
+**Never list contributing TFs or touches in prose** — keep them in the tag / bullet only.
+
 ### Rezistență (up to 4 zones)
 
 Zones within 20% above current price, **nearest first**. Format:
@@ -306,8 +348,14 @@ The `data/{slug}/briefing.md` file content should follow this exact structure:
 ### Suport
 
 - **[zona curentă] {range}** — confluență medie   ← dacă e cazul
-- **{range}** (−X.X%) — confluență puternică
+- **{range}** (−X.X%) — confluență puternică · SSL-pool 2× 1w+1d · ~30h
+- **{range}** (−X.X%) — confluență slabă · BSL-pool ~12h (swept)
 - ...
+
+### Zone de liquidity   ← only when standalone unswept pools exist; omit otherwise
+
+- **{price}** (+X.X%) — BSL unswept · 1w+1d · 2× touches · ~40h
+- **{price}** (−X.X%) — SSL unswept · 1d · 1× touch · ~18h
 
 ### Catalizatori
 

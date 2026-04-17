@@ -26,6 +26,7 @@ from pathlib import Path
 
 import yaml
 
+from src import liquidity as liquidity_mod
 from src import market_context as market_context_mod
 from src import momentum as momentum_mod
 from src.confluence import cluster, split_by_price
@@ -129,6 +130,15 @@ def build(slug: str) -> dict:
     ctx = market_context_mod.fetch()
     momentum = momentum_mod.compute_per_tf(ohlc)
 
+    # 6b. Liquidity pools derived from swing pivots — separate layer from
+    # fib confluence; agent treats them as magnets, not S/R.
+    liquidity_pools = liquidity_mod.compute_pools(
+        swing_pairs=all_pairs,
+        ohlc=ohlc,
+        current_price=current_price,
+        daily_atr=daily_atr,
+    )
+
     # 7. Serialize
     decimals = _price_decimals(asset_class, current_price)
 
@@ -158,6 +168,7 @@ def build(slug: str) -> dict:
         "support": [z_to_dict(z) for z in support[:MAX_ZONES_PER_SIDE]],
         "market_context": ctx,
         "momentum": momentum,
+        "liquidity": liquidity_pools,
     }
 
 

@@ -53,6 +53,10 @@ The `tradfi-swings` skill orchestrates in two phases:
 
 One Telegram summary at the end (all instruments rolled up).
 
+## Liquidity pools (separate layer from fib confluence)
+
+Alongside the fib zones, each instrument's payload now carries a `liquidity` section with buy-side (BSL, above swing highs) and sell-side (SSL, below swing lows) pool proxies derived from the same swing pivots. Pools cluster at the `0.25 × daily_ATR` radius, rank unswept-first then by `TF_WEIGHTS × touches`, and filter to within ±20% of price. The agent tags fib zones that overlap a pool (`· BSL-pool ~Nh`), emits standalone unswept pools under `### Zone de liquidity` with magnet language, and uses softer wording for forex/commodities (no consolidated tape — pool is more hypothetical than on indices/stocks).
+
 ## The briefing format
 
 Full-Romanian. Five sections per instrument:
