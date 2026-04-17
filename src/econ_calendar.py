@@ -21,7 +21,8 @@ MIRROR_URL = (
     "data-mirror/ff_calendar_thisweek.json"
 )
 TIMEOUT = 8
-MAX_RETRIES = 2
+MAX_RETRIES = 3
+BACKOFF_BASE = 2
 KEEP_IMPACTS = {"high", "medium"}
 WINDOW_HOURS = 48
 
@@ -61,6 +62,7 @@ def fetch() -> list[dict]:
           "previous": str | None,
         }
     Filtered to events in the next 48h with high/medium impact."""
+    import time
     raw = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -68,8 +70,11 @@ def fetch() -> list[dict]:
             if r.status_code == 200:
                 raw = r.json()
                 break
+            # 5xx or other — fall through to backoff
         except Exception:
             pass
+        if attempt < MAX_RETRIES - 1:
+            time.sleep(BACKOFF_BASE ** attempt)
     if raw is None or not isinstance(raw, list):
         return []
 

@@ -26,21 +26,31 @@ MARKETAUX_API_KEY = os.environ.get("MARKETAUX_API_KEY", "")
 NEWS_MAX_ITEMS = 3
 NEWS_MAX_AGE_HOURS = 48
 HTTP_TIMEOUT = 8
-HTTP_MAX_RETRIES = 2
+HTTP_MAX_RETRIES = 3
 HTTP_BACKOFF_BASE = 2
 RSS_TIMEOUT = 5
-RSS_MAX_RETRIES = 2
+RSS_MAX_RETRIES = 3
 
 
 def _http_get(url: str, headers: Optional[dict] = None, timeout: int = HTTP_TIMEOUT) -> Optional[requests.Response]:
+    """GET with exponential backoff on 5xx responses AND transient network
+    errors. Returns the final Response (possibly still 5xx) or None if every
+    attempt raised. Matches the pattern in financial-briefing — a plain
+    `return requests.get(...)` would miss 5xx bodies because requests does
+    not raise on them."""
+    resp: Optional[requests.Response] = None
     for attempt in range(HTTP_MAX_RETRIES):
         try:
-            return requests.get(url, headers=headers, timeout=timeout)
+            resp = requests.get(url, headers=headers, timeout=timeout)
+            if resp.status_code < 500:
+                return resp
+            # 5xx → fall through to backoff + retry
         except requests.RequestException:
-            if attempt == HTTP_MAX_RETRIES - 1:
-                return None
+            # Also retry on connection errors, DNS failures, timeouts
+            pass
+        if attempt < HTTP_MAX_RETRIES - 1:
             time.sleep(HTTP_BACKOFF_BASE ** attempt)
-    return None
+    return resp
 
 
 def _is_fresh_iso(iso_str: str) -> bool:
