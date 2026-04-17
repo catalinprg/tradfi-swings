@@ -1,0 +1,88 @@
+# TradFi swings watchlist.
+#
+# Each instrument is keyed by a short lowercase slug used for:
+#   - CLI arg (python -m scripts.emit_payload eurusd)
+#   - data/{slug}/payload.json
+#   - data/{slug}/briefing.md
+#   - Notion page title uses `display`
+#
+# `asset_class` informs agent reasoning (VIX/DXY weightings differ by class).
+# Every instrument uses the same 5-TF set: 5m, 1h, 4h, 1d, 1w.
+
+instruments:
+  # Forex majors (yfinance forex feed — EURUSD=X convention)
+  eurusd:
+    symbol: "EURUSD=X"
+    display: "EUR/USD"
+    asset_class: "forex"
+  gbpusd:
+    symbol: "GBPUSD=X"
+    display: "GBP/USD"
+    asset_class: "forex"
+  usdjpy:
+    symbol: "USDJPY=X"
+    display: "USD/JPY"
+    asset_class: "forex"
+
+  # Commodities
+  gold:
+    symbol: "GC=F"
+    display: "Gold"
+    asset_class: "commodity"
+  oil:
+    symbol: "CL=F"
+    display: "Oil (WTI)"
+    asset_class: "commodity"
+
+  # US indices
+  spx:
+    symbol: "^GSPC"
+    display: "S&P 500"
+    asset_class: "index"
+  ndx:
+    symbol: "^NDX"
+    display: "Nasdaq 100"
+    asset_class: "index"
+  dji:
+    symbol: "^DJI"
+    display: "Dow Jones"
+    asset_class: "index"
+
+  # European indices
+  stoxx50:
+    symbol: "^STOXX50E"
+    display: "EuroStoxx 50"
+    asset_class: "index"
+  ftse:
+    symbol: "^FTSE"
+    display: "FTSE 100"
+    asset_class: "index"
+  dax:
+    symbol: "^GDAXI"
+    display: "DAX"
+    asset_class: "index"
+
+  # Stocks
+  aapl:
+    symbol: "AAPL"
+    display: "Apple"
+    asset_class: "stock"
+  nvda:
+    symbol: "NVDA"
+    display: "Nvidia"
+    asset_class: "stock"
+  msft:
+    symbol: "MSFT"
+    display: "Microsoft"
+    asset_class: "stock"
+
+# Market-wide context tickers fetched once per run and attached to every
+# instrument payload as `market_context`. Agent uses them for positioning
+# adjustments analogous to crypto funding/liquidation signals.
+context:
+  vix:
+    symbol: "^VIX"
+    display: "VIX"
+  dxy:
+    symbol: "DX-Y.NYB"
+    display: "Dollar Index"
