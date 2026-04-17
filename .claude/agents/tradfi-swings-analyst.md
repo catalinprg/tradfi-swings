@@ -82,7 +82,14 @@ You do not run the pipeline; you interpret both files together and write the bri
       "relevance_terms": ["EUR/USD", "EURUSD", "euro dollar", "ECB", ...],
       "news_source": "marketaux" | "finnhub" | "rss" | "none",
       "items": [
-        {"headline": "...", "source": "...", "published": "...", "url": "...", "summary": "..."}
+        {
+          "headline": "...",       // raw article title
+          "source": "...",
+          "published": "...",
+          "url": "...",
+          "summary": "...",        // short snippet (1-2 sentences) from the news API
+          "content": "..." | null  // extracted article body, up to ~1500 chars; null when extraction failed (paywall, 403, timeout)
+        }
       ]
     },
     "gbpusd": { ... },
@@ -247,11 +254,14 @@ Up to **3 bullets total** combining calendar events and news. Omit the section e
 - If an event is in the past 2h, prefix with `📅 (acum ~Nh)` and note the result if a forecast/actual is visible.
 
 **News bullets** (0–2):
-- Prefix with `📰`. Format: `📰 {headline} ({source})`. Keep the headline in the original language (English typically). One hedged Romanian connector word before is fine if context helps.
-- Only include items that would plausibly move this instrument. A story about "Apple's India factory" is relevant for AAPL; a generic "tech stocks slide" is relevant for NDX, maybe AAPL/NVDA/MSFT, not EUR/USD.
-- Skip anything older than 24h unless it's still the dominant market narrative.
+- Prefix with `📰`. Format: `📰 {one-sentence Romanian paraphrase} — {source}, {HH:MM} UTC`.
+- **Read the `content` field** (not just `headline`/`summary`) to understand what actually happened, then paraphrase in one Romanian sentence — include the concrete fact or action (earnings beat, guidance cut, rate decision, production halt, CEO statement, etc.). The headline alone is rarely enough; it's a teaser. The `summary` is usually the first sentence of the body; `content` is up to ~1500 chars of the article lead + first paragraphs.
+- If `content` is `null` (extraction failed), fall back to a best-effort paraphrase of `headline` + `summary`, and note the source at the end. Do not invent facts not present in any of those fields.
+- Only include items that would plausibly move this instrument. A story about "Apple's India factory" is relevant for AAPL; "tech stocks slide" can touch NDX and its components but not EUR/USD.
+- Skip anything older than 24h unless it's still the dominant market narrative for this instrument.
+- Keep the paraphrase factual and hedged — what was reported, not your opinion of it. Example good: *"📰 Nvidia a depășit estimările de venituri pentru Q1, raportând $27B vs consens $25.8B — Reuters, 22:30 UTC."* Example bad: *"📰 Nvidia a avut un raport excepțional care va împinge probabil NDX mai sus"* (speculation on market impact).
 
-Don't editorialize. Just surface the facts. The reader decides the significance.
+Don't editorialize — paraphrase, attribute, leave the interpretation to the reader.
 
 ### De urmărit
 
@@ -286,7 +296,7 @@ The `data/{slug}/briefing.md` file content should follow this exact structure:
 ### Catalizatori
 
 - 📅 {local_date_hh_mm} — {title} ({country}/{currency}, impact: {impact})
-- 📰 {headline} ({source})
+- 📰 {one-sentence Romanian paraphrase} — {source}, {HH:MM} UTC
 - ...
 ```
 (Omit the Catalizatori section entirely when there's nothing relevant — never fill with placeholders.)

@@ -77,17 +77,18 @@ yfinance (OHLC) is keyless. The economic calendar is served by this repo's own `
 **Setup command:**
 ```bash
 #!/bin/bash
-uv pip install --system yfinance pandas numpy requests PyYAML feedparser
+uv pip install --system yfinance pandas numpy requests PyYAML feedparser trafilatura
 ```
 
 **Outbound allowlist:**
 - `query1.finance.yahoo.com`, `query2.finance.yahoo.com`, `finance.yahoo.com`, `fc.yahoo.com`, `*.finance.yahoo.com` — yfinance
-- `finnhub.io` — equity news
-- `api.marketaux.com` — forex/commodity news
+- `finnhub.io` — equity news API
+- `api.marketaux.com` — forex/commodity news API
 - `news.google.com` — RSS fallback
 - `raw.githubusercontent.com` — economic calendar mirror
 - `api.notion.com`
 - `api.telegram.org`
+- **Article-content extraction** reaches into many news publisher domains (Reuters, CNBC, Bloomberg, FT, FXStreet, Yahoo Finance, etc.). On a restricted-allowlist env, extraction fails silently and the agent falls back to headline + summary. On a full-trust env, extraction lands 70–90% of articles depending on publisher paywalls.
 
 ## Local dev
 

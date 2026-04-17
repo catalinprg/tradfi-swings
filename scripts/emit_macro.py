@@ -19,13 +19,18 @@ than breaking.
 """
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
+from src import article_extract as article_extract_mod
 from src import econ_calendar as econ_calendar_mod
 from src import news as news_mod
+
+
+EXTRACT_CONCURRENCY = 10
 
 
 def _load_watchlist() -> dict:
@@ -34,10 +39,32 @@ def _load_watchlist() -> dict:
         return yaml.safe_load(f)
 
 
+def _enrich_with_content(items: list[dict]) -> list[dict]:
+    """Fan out article fetches across a thread pool; each item gets a
+    `content` field added IN PLACE so per_instrument's dict references
+    stay live. Failures pass through silently as `content: None` — the
+    agent falls back to the `summary` field when content is absent."""
+    if not items:
+        return items
+
+    def _work(item):
+        return item, article_extract_mod.extract(item.get("url") or "")
+
+    with ThreadPoolExecutor(max_workers=EXTRACT_CONCURRENCY) as pool:
+        futures = [pool.submit(_work, it) for it in items]
+        for fut in as_completed(futures):
+            item, content = fut.result()
+            item["content"] = content   # mutate in place
+    return items
+
+
 def build() -> dict:
     watchlist = _load_watchlist()
 
     per_instrument: dict[str, dict] = {}
+    # Collect every news item across all instruments so we can fan out
+    # article extraction in one parallel pass (faster than serial-per-slug).
+    all_items: list[dict] = []
     for slug, instr in watchlist["instruments"].items():
         items, source = news_mod.fetch_for_instrument(instr)
         per_instrument[slug] = {
@@ -47,6 +74,11 @@ def build() -> dict:
             "news_source":     source,
             "items":           items,
         }
+        all_items.extend(items)
+
+    # Single-pass parallel enrichment. Modifies the item dicts in place
+    # (they're the same references inside per_instrument).
+    _enrich_with_content(all_items)
 
     events = econ_calendar_mod.fetch()
 
@@ -71,9 +103,16 @@ def main() -> int:
         json.dump(payload, f, indent=2)
 
     total_news = sum(len(v["items"]) for v in payload["per_instrument_news"].values())
+    items_with_content = sum(
+        1
+        for v in payload["per_instrument_news"].values()
+        for it in v["items"]
+        if it.get("content")
+    )
     print(f"macro context written: {out_file}")
     print(
-        f"  news items: {total_news} across {len(payload['per_instrument_news'])} instruments"
+        f"  news items: {total_news} across {len(payload['per_instrument_news'])} instruments "
+        f"({items_with_content}/{total_news} with extracted article content)"
     )
     print(f"  calendar events (48h window): {len(payload['economic_calendar'])}")
     return 0
