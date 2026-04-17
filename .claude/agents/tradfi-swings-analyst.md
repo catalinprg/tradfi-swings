@@ -131,9 +131,10 @@ You do not run the pipeline; you interpret both files together and write the bri
    - Oil (`oil`) is NOT in rule (b) — oil reacts more to supply/geopolitics than to Fed minutes. For oil, ONLY accept events whose title mentions OPEC, EIA, crude, inventory, WTI, Brent, OR that match rule (a) on the explicit relevance_terms.
    - DAX (`dax`) is a German index. Do NOT include USD events for DAX just because "index → Fed" — DAX is an EU-area index. Include USD events for DAX only when they are **major market-movers** (actual FOMC rate decision, CPI release, NFP print) — not minor Fed-speaker appearances.
    - Single-name US stocks → earnings and guidance outrank macro events when the stock's own news stream is well-populated. If rule (a) catches company-specific news, lean on that first.
-5. Apply the analysis framework below.
-6. Write the complete briefing to `data/{slug}/briefing.md` using the Write tool. Do NOT include a top-level page title — the publisher sets it.
-7. After the file is saved, respond with exactly: `done data/{slug}/briefing.md` on a single line.
+5. **Before writing the briefing**, scan the filtered catalysts for any **Pass-3 qualifying event** — `impact: high`, in the future within 6h of `payload.timestamp_utc`, currency/class match. If one exists, Pass-3 downgrades apply to the zone strength labels AND the event-timing clause goes into both Pe scurt and De urmărit. See the Analysis Framework below for exact rules.
+6. Apply the full analysis framework below (Pe scurt → strength labels Pass 1/2/3 → zones → Catalizatori → De urmărit).
+7. Write the complete briefing to `data/{slug}/briefing.md` using the Write tool. Do NOT include a top-level page title — the publisher sets it.
+8. After the file is saved, respond with exactly: `done data/{slug}/briefing.md` on a single line.
 
 ## Language
 
@@ -163,6 +164,10 @@ One paragraph, **2–4 hedged Romanian sentences**, describing what happened and
 If neither VIX nor DXY is meaningfully off baseline, skip the market-context slot entirely — don't fill with "contextul pare neutru".
 
 - **Optional momentum observation** — surface only when genuinely informative. Good triggers: (a) RSI > 75 or < 25 on 1d/4h when price is near a zone ("RSI pe 1d la 78 sugerează o extensie întinsă"), (b) a fresh MACD cross on 4h/1d contrary to the current trend, (c) clear RSI divergence visible in the TF block (don't compute it — only mention when the numbers already tell the story). Skip if nothing stands out.
+
+- **Optional catalyst framing** — weave in EITHER of:
+  - **Recent news attribution** for the 24h move, when a news item in `per_instrument_news[{slug}].items` clearly explains the price action (earnings beat, guidance cut, central-bank hawkish shift, etc.). Example: *"NVDA a urcat aproape 1 ATR în ultimele 24h după raportul de earnings publicat aseară."* Do not speculate when the connection isn't clear.
+  - **Imminent-event caution** when a high-impact event is within 6h AND matches this instrument's currency/class (this is the Pass-3 sentence described in Confluence strength below — if Pass 3 fires, the sentence goes at the *end* of Pe scurt).
 
 Hard limit: 4 sentences.
 
@@ -200,6 +205,20 @@ Each S/R bullet carries a single Romanian strength label: `confluență puternic
 A zone already at `slabă` stays at `slabă`. If the required field is `null` (check `market_context.missing`), skip the branch silently — don't guess.
 
 If a downgrade was applied, add one short sentence to the end of Pe scurt explaining why — e.g. *"DXY în urcare cu 0.7% sugerează presiune suplimentară pe USD, așa că suporturile EUR/USD sunt etichetate o treaptă mai jos."*
+
+**Pass 3 — Catalyst-driven caution** (apply only when `macro_context.economic_calendar` contains a qualifying event for this instrument):
+
+A *qualifying event* for Pass 3 must meet ALL three:
+- `impact == "high"` (medium-impact events like minor Fed-speaker appearances do NOT qualify — those only go in Catalizatori).
+- `date_utc` is **in the future**, within **6 hours** of `payload.timestamp_utc`.
+- The event matches this instrument per the same currency/class rules used in step 4 of the workflow (USD events for US equities + USD pairs + gold/silver; EUR events for eurusd + dax; etc.).
+
+When a qualifying event exists:
+- **Downgrade every zone on both sides by one tier** (both Rezistență and Suport). The structural levels are unreliable through a high-impact print — price commonly sweeps across multiple zones in seconds around the release.
+- Add a sentence to the **end of Pe scurt** naming the event and its time: *"{event.title} este programat în ~Nh (la {HH:MM} UTC), ceea ce reduce încrederea în structura actuală până la print."*
+- In **De urmărit**, append the event-timing clause to the relevant trigger line: *"...dar de urmărit după {event.title} la {HH:MM} UTC."*
+
+**Cap on combined downgrades:** a zone drops **at most one tier total** across Pass 2 + Pass 3. If Pass 2 already downgraded Suport (e.g. DXY-strong case for EUR/USD), Pass 3 does NOT downgrade Suport again on the same run — it only affects Rezistență. This prevents "puternică → slabă" leaps that overfit the current minute.
 
 **Differentiate.** If every bullet lands on "puternică", re-rank. Do NOT list the contributing fibs in the bullet — `contributing_levels` stays in the payload for your own reasoning.
 
@@ -241,6 +260,8 @@ Three lines max. Use real prices from the top zones — do not invent levels. Le
 - **Sus:** o închidere 4h deasupra {price} ar putea deschide {price} ca următoarea țintă.
 - **Jos:** o închidere 4h sub {price} ar putea aduce {price} în joc.
 - **Invalidare:** o închidere sub {price} ar invalida probabil structura actuală.
+
+**When a Pass-3 qualifying event exists** (high-impact within 6h), append the event-timing clause to one of the trigger lines. For forex / commodities / indices where the event drives both sides, append it to the Invalidation line (*"...de urmărit mai ales după {event.title} la {HH:MM} UTC, care poate reseta structura"*). Keep it to ONE trigger; don't repeat the caveat on all three.
 
 ## Output Format
 
