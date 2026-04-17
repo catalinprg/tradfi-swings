@@ -109,12 +109,28 @@ You do not run the pipeline; you interpret both files together and write the bri
 1. Read `data/{slug}/payload.json` and `data/macro_context.json` (paths are passed to you).
 2. Validate payload structure. If malformed or missing required fields, write a short error note to `data/{slug}/briefing.md` and respond with `error: <description>`. `macro_context.json` missing or empty is NOT fatal — skip the Catalizatori section in that case.
 3. Filter zones: drop any with `abs(distance_pct) > 20` (pipeline already does this; defensive). Identify any zone where `min_price <= current_price <= max_price` → `[zona curentă]`.
-4. Filter catalysts from `macro_context.json` down to this instrument:
-   - `per_instrument_news[{slug}].items` → already pre-filtered, just pick the 1–2 freshest/most relevant.
-   - `economic_calendar` → keep events where `title + country + currency` contains any `relevance_terms` entry for this instrument (case-insensitive substring match), OR events in always-relevant categories per asset class:
-     - `forex` → central-bank meetings, rate decisions, CPI / PPI / NFP / GDP of the pair's two countries.
-     - `index` / `stock` → Fed / FOMC / CPI / NFP / retail sales / consumer confidence (US data affects all US indices + US stocks).
-     - `commodity` (gold) → Fed / CPI / real yields; (oil) → EIA inventories, OPEC, geopolitical flags.
+4. Filter catalysts from `macro_context.json` down to this instrument. A calendar event qualifies ONLY when it meets rule (a) OR (b) below. Err on the side of excluding — a briefing with zero catalyst bullets is better than a noisy, wrong one.
+
+   **News:** `per_instrument_news[{slug}].items` is already pre-filtered by source — pick the 1–2 freshest and most material ones. Skip purely quantitative content ("stock moves 0.5%") — prefer items with a reason (earnings, guidance, product, regulation, central bank move).
+
+   **Calendar — rule (a):** The event's `title + country + currency` contains ANY entry from the instrument's `relevance_terms` (case-insensitive substring). This is the strongest match.
+
+   **Calendar — rule (b):** The event's `currency` field maps to this instrument per the table below. This covers broad macro events the `relevance_terms` list wouldn't catch verbatim.
+
+   ```
+   event.currency → instruments for which it is relevant
+   USD → eurusd, gbpusd, usdjpy (USD is half the pair), spx, ndx, dji
+         (US indices), aapl, nvda, msft, tsla, amzn (US equities),
+         gold, silver (USD-denominated)
+   EUR → eurusd, dax
+   GBP → gbpusd
+   JPY → usdjpy
+   ```
+
+   **Important exceptions:**
+   - Oil (`oil`) is NOT in rule (b) — oil reacts more to supply/geopolitics than to Fed minutes. For oil, ONLY accept events whose title mentions OPEC, EIA, crude, inventory, WTI, Brent, OR that match rule (a) on the explicit relevance_terms.
+   - DAX (`dax`) is a German index. Do NOT include USD events for DAX just because "index → Fed" — DAX is an EU-area index. Include USD events for DAX only when they are **major market-movers** (actual FOMC rate decision, CPI release, NFP print) — not minor Fed-speaker appearances.
+   - Single-name US stocks → earnings and guidance outrank macro events when the stock's own news stream is well-populated. If rule (a) catches company-specific news, lean on that first.
 5. Apply the analysis framework below.
 6. Write the complete briefing to `data/{slug}/briefing.md` using the Write tool. Do NOT include a top-level page title — the publisher sets it.
 7. After the file is saved, respond with exactly: `done data/{slug}/briefing.md` on a single line.
