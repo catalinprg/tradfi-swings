@@ -61,7 +61,7 @@ instruments:
     symbol: "SI=F"
     display: "Silver"
     asset_class: "commodity"
-    notion_parent: null   # user to create parent page and paste ID
+    notion_parent: "345b7f28c04480b0912bcf7958c002a5"
     finnhub_symbol: null
     marketaux_symbol: "XAGUSD"
     rss_query: "silver price today XAG"
@@ -148,7 +148,7 @@ instruments:
     symbol: "TSLA"
     display: "Tesla"
     asset_class: "stock"
-    notion_parent: null   # user to create parent page and paste ID
+    notion_parent: "345b7f28c04480bda6eee876de952539"
     finnhub_symbol: "TSLA"
     marketaux_symbol: null
     rss_query: "Tesla TSLA stock news"
@@ -157,7 +157,7 @@ instruments:
     symbol: "AMZN"
     display: "Amazon"
     asset_class: "stock"
-    notion_parent: null   # user to create parent page and paste ID
+    notion_parent: "345b7f28c04480918d4ee1fabbc08be5"
     finnhub_symbol: "AMZN"
     marketaux_symbol: null
     rss_query: "Amazon AMZN stock news"
