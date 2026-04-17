@@ -41,7 +41,7 @@ The `tradfi-swings` skill orchestrates, per instrument:
 
 1. `python -m scripts.emit_payload <slug>` → fetches OHLC + VIX/DXY snapshot → writes `data/<slug>/payload.json`.
 2. Dispatches the `tradfi-swings-analyst` agent → reads the payload → writes `data/<slug>/briefing.md`.
-3. `python publish_notion.py data/<slug>/briefing.md <slug> <timestamp>` → creates a Notion child page under the TradFI parent (`345b7f28c04480598b15df10caa0d988`).
+3. `python publish_notion.py data/<slug>/briefing.md <slug> <timestamp>` → creates a Notion child page under the instrument's dedicated parent page (configured per-slug in `config/watchlist.yaml` under `notion_parent`). The TradFI workspace page holds one child per asset (`EUR/USD`, `S&P 500`, `Apple`, etc.); each run of the pipeline stacks a new timestamped analysis inside.
 
 One Telegram summary at the end (all instruments rolled up).
 
@@ -56,7 +56,7 @@ Full-Romanian. Four sections per instrument:
 
 ## Env vars
 
-- `NOTION_TOKEN` — Notion Internal Integration Token. TradFI parent page (`345b7f28c04480598b15df10caa0d988`) must be shared with the integration.
+- `NOTION_TOKEN` — Notion Internal Integration Token. Each per-asset parent page (listed under `notion_parent` in `config/watchlist.yaml`) must be shared with the integration. Sharing the top-level TradFI page with the integration propagates access to all 14 children automatically.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — optional; notification degrades silently if unset.
 
 No API keys for data (yfinance is keyless).

@@ -1,13 +1,19 @@
-"""Publish a markdown briefing to Notion as a child page under the TradFI parent.
+"""Publish a markdown briefing to Notion as a child page under the
+instrument's dedicated parent page.
 
 Usage: python3 publish_notion.py <path_to_briefing.md> <INSTRUMENT_SLUG> <TIMESTAMP>
 
-`INSTRUMENT_SLUG` looks up the display name from config/watchlist.yaml;
-the Notion page title becomes: `TradFi — {display} — {TIMESTAMP}`.
+Looks up the instrument's `notion_parent` from config/watchlist.yaml and
+creates the briefing as a child page under it. The parent page for each
+asset lives under the top-level TradFI page; this script never touches
+that top-level page directly.
 
-Requires env var: NOTION_TOKEN (Notion Internal Integration Token).
-The parent page (345b7f28c04480598b15df10caa0d988, "TradFI") must be shared
-with the integration.
+`TIMESTAMP` can be either the compact `YYYYMMDD_HHMMSS` format emitted by
+the skill or any free-form string — it's passed through to the Notion
+title after a best-effort reformat to `YYYY-MM-DD HH:MM UTC`.
+
+Requires env var: NOTION_TOKEN (Notion Internal Integration Token). Each
+per-asset parent page must be shared with the integration.
 
 Exits 0 on success, prints the page URL on the last stdout line.
 Exits non-zero on failure, prints error to stderr.
@@ -22,19 +28,32 @@ import yaml
 
 NOTION_TOKEN = os.environ.get("NOTION_TOKEN", "")
 NOTION_VERSION = "2022-06-28"
-PARENT_PAGE_ID = "345b7f28c04480598b15df10caa0d988"
 API_BASE = "https://api.notion.com/v1"
 BATCH = 100
 
+COMPACT_TS_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$")
 
-def _load_display(slug: str) -> str:
+
+def _load_instrument(slug: str) -> dict:
     root = Path(__file__).resolve().parent
     with open(root / "config" / "watchlist.yaml") as f:
         watchlist = yaml.safe_load(f)
     instr = watchlist["instruments"].get(slug)
     if not instr:
         raise SystemExit(f"unknown instrument slug '{slug}'")
-    return instr["display"]
+    if not instr.get("notion_parent"):
+        raise SystemExit(f"instrument '{slug}' has no notion_parent configured")
+    return instr
+
+
+def _format_title_timestamp(ts: str) -> str:
+    """Reformat `YYYYMMDD_HHMMSS` → `YYYY-MM-DD HH:MM UTC`. Pass through
+    any other format unchanged."""
+    m = COMPACT_TS_RE.match(ts.strip())
+    if not m:
+        return ts
+    y, mo, d, h, mi, _ = m.groups()
+    return f"{y}-{mo}-{d} {h}:{mi} UTC"
 
 INLINE_PATTERN = re.compile(
     r"(\*\*([^*]+)\*\*)"              # **bold**
@@ -181,9 +200,9 @@ def _headers():
     }
 
 
-def create_page(title, children):
+def create_page(title, children, parent_page_id):
     payload = {
-        "parent": {"page_id": PARENT_PAGE_ID},
+        "parent": {"page_id": parent_page_id},
         "properties": {
             "title": {"title": [{"type": "text", "text": {"content": title}}]}
         },
@@ -219,8 +238,11 @@ def main():
         sys.exit(2)
 
     md_path, slug, timestamp = sys.argv[1], sys.argv[2], sys.argv[3]
-    display = _load_display(slug)
-    title = f"TradFi — {display} — {timestamp}"
+    instr = _load_instrument(slug)
+    parent_page_id = instr["notion_parent"]
+    # Parent page already identifies the asset (e.g. "EUR/USD"), so the child
+    # title is just the formatted timestamp.
+    title = _format_title_timestamp(timestamp)
 
     with open(md_path, "r", encoding="utf-8") as f:
         markdown = f.read()
@@ -230,7 +252,7 @@ def main():
         print("error: briefing is empty, no blocks to publish", file=sys.stderr)
         sys.exit(3)
 
-    page_id, page_url = create_page(title, blocks[:BATCH])
+    page_id, page_url = create_page(title, blocks[:BATCH], parent_page_id)
     for i in range(BATCH, len(blocks), BATCH):
         append_children(page_id, blocks[i:i + BATCH])
 

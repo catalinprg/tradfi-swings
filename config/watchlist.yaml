@@ -15,66 +15,80 @@ instruments:
     symbol: "EURUSD=X"
     display: "EUR/USD"
     asset_class: "forex"
+    notion_parent: "345b7f28c04480d7a186c8786eab95c4"
   gbpusd:
     symbol: "GBPUSD=X"
     display: "GBP/USD"
     asset_class: "forex"
+    notion_parent: "345b7f28c04480f0a102fe4c0321c8cf"
   usdjpy:
     symbol: "USDJPY=X"
     display: "USD/JPY"
     asset_class: "forex"
+    notion_parent: "345b7f28c04480f99b04c9b60d5d9ac8"
 
   # Commodities
   gold:
     symbol: "GC=F"
     display: "Gold"
     asset_class: "commodity"
+    notion_parent: "345b7f28c044806fa7a4deb6d1105730"
   oil:
     symbol: "CL=F"
     display: "Oil (WTI)"
     asset_class: "commodity"
+    notion_parent: "345b7f28c04480f1b28fedc762123c41"
 
   # US indices
   spx:
     symbol: "^GSPC"
     display: "S&P 500"
     asset_class: "index"
+    notion_parent: "345b7f28c044807b84a4dfc36c3079f1"
   ndx:
     symbol: "^NDX"
     display: "Nasdaq 100"
     asset_class: "index"
+    notion_parent: "345b7f28c0448027bd7adb70a697dbbb"
   dji:
     symbol: "^DJI"
     display: "Dow Jones"
     asset_class: "index"
+    notion_parent: "345b7f28c04480b79e0df899a1912afc"
 
   # European indices
   stoxx50:
     symbol: "^STOXX50E"
     display: "EuroStoxx 50"
     asset_class: "index"
+    notion_parent: "345b7f28c0448007a795eb392a62a697"
   ftse:
     symbol: "^FTSE"
     display: "FTSE 100"
     asset_class: "index"
+    notion_parent: "345b7f28c04480a89c7fef76c8a071d2"
   dax:
     symbol: "^GDAXI"
     display: "DAX"
     asset_class: "index"
+    notion_parent: "345b7f28c0448059a4e7c38cf060b5b9"
 
   # Stocks
   aapl:
     symbol: "AAPL"
     display: "Apple"
     asset_class: "stock"
+    notion_parent: "345b7f28c044800795c9ff58f2534916"
   nvda:
     symbol: "NVDA"
     display: "Nvidia"
     asset_class: "stock"
+    notion_parent: "345b7f28c044804dbd5fcd49aa006adb"
   msft:
     symbol: "MSFT"
     display: "Microsoft"
     asset_class: "stock"
+    notion_parent: "345b7f28c04480649b0cc4c615d07006"
 
 # Market-wide context tickers fetched once per run and attached to every
 # instrument payload as `market_context`. Agent uses them for positioning

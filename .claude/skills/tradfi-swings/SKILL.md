@@ -73,11 +73,11 @@ python3 publish_notion.py data/SLUG/briefing.md SLUG TIMESTAMP
 
 The script:
 - Reads `data/SLUG/briefing.md`.
-- Looks up the display name for SLUG from `config/watchlist.yaml`.
-- Creates a child page of the TradFI parent (`345b7f28c04480598b15df10caa0d988`) titled `TradFi — {display} — TIMESTAMP`.
+- Looks up the instrument's dedicated `notion_parent` page id from `config/watchlist.yaml`.
+- Creates a child page under that parent. The title is just the formatted timestamp (e.g. `2026-04-17 14:00 UTC`) — the parent page already identifies the asset (`EUR/USD`, `S&P 500`, `Apple`, etc.).
 - Prints the new Notion page URL on the last stdout line.
 
-Required env: `NOTION_TOKEN` (Notion Internal Integration Token — the TradFI parent must be shared with the integration).
+Required env: `NOTION_TOKEN` (Notion Internal Integration Token — each per-asset parent page must be shared with the integration).
 
 On non-zero exit, capture stderr and record the failure for SLUG.
 
