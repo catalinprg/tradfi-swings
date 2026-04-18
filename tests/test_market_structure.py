@@ -45,3 +45,16 @@ def test_insufficient_pivots_returns_range():
     assert state.bias == "range"
     state2 = analyze_structure([], [], current_price=99.0)
     assert state2.bias == "range"
+
+
+def test_last_two_pivots_override_historical_outlier():
+    """Regression: bias reflects the MOST RECENT swing, not history-wide
+    monotonicity. An old outlier pivot must not void a current trend shift."""
+    # Highs: 105 → 100 → 110 (not all-monotonic, but last 2 are HH).
+    # Lows: 95 → 102 (HL). Should be bullish.
+    highs = [(1, 105.0), (3, 100.0), (5, 110.0)]
+    lows  = [(2, 95.0),  (4, 102.0)]
+    state = analyze_structure(highs, lows, current_price=108.0)
+    assert state.bias == "bullish"
+    assert state.last_bos["level"] == 110.0
+    assert state.invalidation_level == 102.0
