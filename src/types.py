@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 Timeframe = Literal["1w", "1d", "1h", "5m"]
@@ -43,6 +43,33 @@ class Zone:
         return (self.min_price + self.max_price) / 2
 
 TF_WEIGHTS: dict[Timeframe, int] = {"1w": 5, "1d": 4, "1h": 2, "5m": 1}
+
+LevelSource = Literal[
+    # Fibonacci
+    "FIB_236", "FIB_382", "FIB_500", "FIB_618", "FIB_786",
+    "FIB_1272", "FIB_1618",
+    # Liquidity pools
+    "LIQ_BSL", "LIQ_SSL",
+    # FVG / Order Blocks
+    "FVG_BULL", "FVG_BEAR",
+    "OB_BULL", "OB_BEAR",
+    # Market structure
+    "MS_BOS_LEVEL", "MS_CHOCH_LEVEL", "MS_INVALIDATION",
+]
+
+@dataclass(frozen=True)
+class Level:
+    """Source-tagged canonical level for unified confluence clustering.
+    Scalar sources set min_price = max_price = price. Zone sources (FVG, OB)
+    set the real range."""
+    price: float
+    min_price: float
+    max_price: float
+    source: LevelSource
+    tf: Timeframe
+    strength: float
+    age_bars: int
+    meta: dict = field(default_factory=dict)
 LEVEL_WEIGHTS: dict[float, int] = {
     0.236: 1, 0.382: 2, 0.5: 3, 0.618: 3, 0.786: 2, 1.272: 2, 1.618: 3,
 }
