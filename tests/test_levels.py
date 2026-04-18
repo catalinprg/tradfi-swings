@@ -35,3 +35,35 @@ def test_split_by_price_partitions_correctly():
     sup, res = split_by_price(zones, current_price=100.0)
     assert all(z.mid < 100.0 for z in sup)
     assert all(z.mid >= 100.0 for z in res)
+
+
+def test_sort_sources_by_priority_puts_ms_and_fib_first():
+    """Priority sort: MS > FIB > LIQ > FVG > OB. Alphabetical tiebreak."""
+    from src.levels import sort_sources_by_priority
+    mixed = [
+        "FVG_BEAR", "OB_BULL",
+        "FIB_618", "FIB_500",
+        "LIQ_BSL",
+        "MS_BOS_LEVEL",
+    ]
+    out = sort_sources_by_priority(mixed)
+    assert out[0] == "MS_BOS_LEVEL"
+    assert out[1:3] == ["FIB_500", "FIB_618"]
+    assert out[3] == "LIQ_BSL"
+    assert out[4] == "FVG_BEAR"
+    assert out[5] == "OB_BULL"
+
+
+def test_sort_sources_top4_preserves_structural_tags():
+    """Top-4 truncation must surface MS/FIB even when other sources are
+    alphabetically ahead."""
+    from src.levels import sort_sources_by_priority
+    zone_sources = [
+        "FVG_BEAR", "FVG_BULL",
+        "OB_BEAR", "OB_BULL",
+        "MS_CHOCH_LEVEL", "FIB_382", "LIQ_SSL",
+    ]
+    top4 = sort_sources_by_priority(zone_sources)[:4]
+    assert "MS_CHOCH_LEVEL" in top4
+    assert "FIB_382" in top4
+    assert "LIQ_SSL" in top4

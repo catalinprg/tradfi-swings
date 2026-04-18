@@ -37,7 +37,7 @@ from src.fvg import detect_fvgs, expected_bar_ms_for
 from src.order_blocks import detect_order_blocks
 from src.market_structure import analyze_structure, StructureState
 from src.levels import (
-    cluster_levels, split_by_price,
+    cluster_levels, split_by_price, sort_sources_by_priority,
     fibs_to_levels, pools_to_levels, fvgs_to_levels, obs_to_levels,
     structure_to_levels,
 )
@@ -186,7 +186,7 @@ def build(slug: str) -> dict:
             "source_count": z.source_count,
             "classification": z.classification,
             "distance_pct": round((z.mid - current_price) / current_price * 100, 2),
-            "sources": sorted({l.source for l in z.levels}),
+            "sources": sort_sources_by_priority(l.source for l in z.levels),
             "contributing_levels": sorted(
                 [{"source": l.source, "tf": l.tf, "price": round(l.price, decimals),
                   "meta": l.meta}

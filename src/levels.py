@@ -17,11 +17,32 @@ SOURCE_FAMILY: dict[str, str] = {
     "MS_BOS_LEVEL": "MS", "MS_CHOCH_LEVEL": "MS", "MS_INVALIDATION": "MS",
 }
 
+# Display priority for zone.sources — lower value surfaces first. Governs
+# which source tags survive when the briefing truncates to the top-N per
+# zone. MS and FIB are the load-bearing signals. Alphabetical sort put FVG
+# ahead of LIQ/MS in some zones; explicit priority keeps MS/FIB at the top.
+FAMILY_PRIORITY: dict[str, int] = {
+    "MS":  0,
+    "FIB": 1,
+    "LIQ": 2,
+    "FVG": 3,
+    "OB":  4,
+}
+
 MAX_ZONE_WIDTH_MULTIPLIER = 2.0
 FAMILY_BONUS = 3.0
 HTF_WEEK_MULT = 1.3
 HTF_DAY_MULT = 1.1
 POOL_STRENGTH_NORMALIZER = 30.0
+
+
+def sort_sources_by_priority(sources: Iterable[str]) -> list[str]:
+    """Order source tags by FAMILY_PRIORITY first, alphabetical within a
+    family. Unknown families sort last."""
+    def key(s: str) -> tuple[int, str]:
+        fam = SOURCE_FAMILY.get(s, s)
+        return (FAMILY_PRIORITY.get(fam, 99), s)
+    return sorted(set(sources), key=key)
 
 
 @dataclass(frozen=True)
