@@ -28,3 +28,10 @@ def test_structural_pivot_when_ms_meets_any_other():
 
 def test_empty_input_returns_empty_list():
     assert cluster_levels([], radius=1.0) == []
+
+def test_split_by_price_partitions_correctly():
+    levels = [_lvl(90.0, "FIB_618"), _lvl(110.0, "LIQ_BSL")]
+    zones = cluster_levels(levels, radius=0.1)
+    sup, res = split_by_price(zones, current_price=100.0)
+    assert all(z.mid < 100.0 for z in sup)
+    assert all(z.mid >= 100.0 for z in res)

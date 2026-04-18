@@ -99,7 +99,7 @@ def split_by_price(
 # Strength ranking (design choice, not derived):
 #   Structure levels: MS_CHOCH=0.9, MS_BOS=0.8, MS_INVALIDATION=0.6
 #   Fibs: key ratios (0.5/0.618/0.382)=0.6, others=0.4
-#   Liquidity pools: strength_score / 30 (normalized)
+#   Liquidity pools: strength_score / POOL_STRENGTH_NORMALIZER (= 30.0, normalized)
 #   FVG unmitigated=0.6, stale=0.3
 #   OB  unmitigated=0.7, stale=0.35
 
