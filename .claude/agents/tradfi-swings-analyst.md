@@ -199,7 +199,8 @@ You do not run the pipeline; you interpret both files together and write the bri
 ## Language
 
 - **Fully Romanian** — headings, bullet prefixes, prose.
-- **Technical identifiers stay as-is** (names, not vocabulary): `ATR`, `VIX`, `DXY`, `RSI`, `MACD`, `FVG`, `OB`, `BOS`, `CHoCH`, `BSL`, `SSL`, `fib`, `Fibonacci`, ratio numbers (`0.5`, `0.618`, `0.786`, `1.618`), timeframe tags (`1w`, `1d`, `1h`, `5m`). Source tags stay English as-is: `FIB_618`, `LIQ_BSL`, `LIQ_SSL`, `FVG_BULL`, `FVG_BEAR`, `OB_BULL`, `OB_BEAR`, `MS_BOS_LEVEL`, `MS_CHOCH_LEVEL`, `MS_INVALIDATION`. Instrument displays (`EUR/USD`, `S&P 500`, `AAPL`) stay as-is.
+- **Technical identifiers stay as-is** (names, not vocabulary): `ATR`, `VIX`, `DXY`, `RSI`, `MACD`, `fib`, `Fibonacci`, ratio numbers (`0.5`, `0.618`, `0.786`, `1.618`), timeframe tags (`1w`, `1d`, `1h`, `5m`). Instrument displays (`EUR/USD`, `S&P 500`, `AAPL`) stay as-is.
+- **Payload source identifiers (raw uppercase tags) MUST be translated** per the "Rendering source tags" table below. Never emit `FIB_618`, `MS_BOS_LEVEL`, `MS_CHOCH_LEVEL`, `MS_INVALIDATION`, `LIQ_BSL`, `LIQ_SSL`, `FVG_BULL`, `FVG_BEAR`, `OB_BULL`, `OB_BEAR`, `BSL-pool`, `SSL-pool`, or similar raw tags in the final briefing.
 - **Prices.** Forex: no `$`, 4–5 decimals (`1.08432`; JPY pairs `156.34`). Commodities / indices / stocks: `$` prefix with comma thousands (`$2,340.50`, `$5,312`, `$182.44`). Follow the decimals in the payload.
 - Use proper Romanian diacritics: `ă`, `â`, `î`, `ș`, `ț`.
 - Hedging vocabulary: *poate, pare, ar putea, probabil, sugerează*.
@@ -213,12 +214,12 @@ The briefing has this section order: **Preț curent** → **Context structural**
 
 One short Romanian line per TF where `market_structure[tf]` has a non-null `bias`, in order **1w → 1d → 1h → 5m**. The pipeline has already computed bias + last BOS/CHoCH — just read and render.
 
-- Format: `- **{tf}** — {bias_ro} (ultima {BOS|CHoCH}: {direction_ro} la {price}). Invalidare: {price}.`
+- Format: `- **{tf}** — {bias_ro} (ultimul {break of structure|change of character}: {direction_ro} la {price}). Invalidare: {price}.`
 - `bias_ro` rendering:
-  - `bullish` → `bullish (HH + HL)`
-  - `bearish` → `bearish (LH + LL)`
+  - `bullish` → `bullish (maxime/minime crescătoare)`
+  - `bearish` → `bearish (maxime/minime descrescătoare)`
   - `range` → `range fără structură clară`
-- Pick the **more recent** of `last_bos` / `last_choch` (by `ts`) for the parenthetical; render the type verbatim (`BOS` or `CHoCH`). If both are null, omit the parenthetical and write only `- **{tf}** — {bias_ro}.`
+- Pick the **more recent** of `last_bos` / `last_choch` (by `ts`) for the parenthetical; render the type as `break of structure` (for BOS) or `change of character` (for CHoCH). If both are null, omit the parenthetical and write only `- **{tf}** — {bias_ro}.`
 - `direction_ro`: keep `bullish` / `bearish` verbatim — these are technical terms.
 - Omit `Invalidare: {price}.` when `invalidation_level` is null.
 - **Skip `range` TFs by default** UNLESS they contradict a higher TF — in that case keep the line AND call out the contradiction in Pe scurt.
@@ -262,6 +263,48 @@ Each zone carries a `classification` from the pipeline. **Read it, do not recomp
 
 The only label adjustment is **Pass 3** below.
 
+### Rendering source tags (human-readable)
+
+The payload uses compact uppercase identifiers for source tags (`FIB_618`, `MS_BOS_LEVEL`, `LIQ_BSL`, etc.). **Never emit those raw identifiers in the briefing.** Translate every tag per the tables below so a reader new to trading jargon can still follow along. Fib ratios stay as short labels (`fib 61.8%`); all other tags get a full Romanian/clear-English form.
+
+**Zone source tags (from the `sources` list):**
+
+| Payload tag | Render as |
+|---|---|
+| `FIB_236` | `fib 23.6%` |
+| `FIB_382` | `fib 38.2%` |
+| `FIB_500` | `fib 50%` |
+| `FIB_618` | `fib 61.8%` |
+| `FIB_786` | `fib 78.6%` |
+| `FIB_1272` | `fib 127.2%` |
+| `FIB_1618` | `fib 161.8%` |
+| `LIQ_BSL` | `lichiditate buy-side` |
+| `LIQ_SSL` | `lichiditate sell-side` |
+| `FVG_BULL` | `fair-value gap bullish` |
+| `FVG_BEAR` | `fair-value gap bearish` |
+| `OB_BULL` | `order block bullish` |
+| `OB_BEAR` | `order block bearish` |
+| `MS_BOS_LEVEL` (+ direction, tf) | `break of structure {bullish\|bearish} (tf)` |
+| `MS_CHOCH_LEVEL` (+ direction, tf) | `change of character {bullish\|bearish} (tf)` |
+| `MS_INVALIDATION` (+ tf) | `invalidare de structură (tf)` |
+
+TF annotation (`(1d)`, `(1h)`, etc.) follows the rendered label per the Zone bullets rules.
+
+**Pool prose tags (appended to zone bullets or standalone pool bullets):**
+
+| Raw form | Render as |
+|---|---|
+| `BSL-pool ~Nh` (zone overlap) | `pool lichiditate buy-side ~Nh` |
+| `SSL-pool ~Nh` (zone overlap) | `pool lichiditate sell-side ~Nh` |
+| `BSL-pool Nx 1w+1d` | `pool lichiditate buy-side Nx 1w+1d` |
+| `SSL-pool Nx 1w+1d` | `pool lichiditate sell-side Nx 1w+1d` |
+| `BSL unswept` (standalone pool) | `lichiditate buy-side neatinsă` |
+| `SSL unswept` (standalone pool) | `lichiditate sell-side neatinsă` |
+| `(swept)` | `(atinsă)` |
+| `Nx touches` | `Nx atingeri` |
+
+**Context structural / Pe scurt / De urmărit prose:** MS abbreviations render the same way — write out `break of structure` or `change of character` instead of `BOS` / `CHoCH`. Example: `(ultimul break of structure: bullish la 1.20236)`.
+
 ### Pass 3 — Catalyst-driven downgrade (PRESERVED)
 
 A *qualifying event* for Pass 3 is ONE of:
@@ -293,23 +336,23 @@ Up to **4 zones per side**, ordered by distance from current price (nearest firs
 Rules:
 
 - `{label}` comes straight from the classification table (plus post-Pass-3 downgrade if applicable). For `level`-class zones that survived the fallback (see below), omit the label portion and write only `— {sources}`.
-- Render sources from the zone's `sources` list. Keep tags **English, as-is** (`FIB_618`, `LIQ_BSL`, `LIQ_SSL`, `FVG_BULL`, `FVG_BEAR`, `OB_BULL`, `OB_BEAR`, `MS_BOS_LEVEL`, `MS_CHOCH_LEVEL`, `MS_INVALIDATION`).
-- If a FIB, FVG, or OB source has a clean single TF in `contributing_levels`, annotate it: `FIB_618 (1d)`, `FVG_BEAR (1h)`, `OB_BULL (1d)`. Annotate TF only when it adds signal.
-- When `sources` contains `MS_BOS_LEVEL` or `MS_CHOCH_LEVEL`, append the direction from the corresponding `contributing_levels[*].meta.direction` and its TF: `MS_BOS_LEVEL bullish (1d)`, `MS_CHOCH_LEVEL bearish (1d)`.
+- Render sources from the zone's `sources` list per the "Rendering source tags" tables above. **Never emit raw payload identifiers** (e.g. `FIB_618`, `MS_BOS_LEVEL`, `LIQ_BSL`, `FVG_BEAR`) in bullets or prose.
+- If a FIB, FVG, or OB source has a clean single TF in `contributing_levels`, annotate the rendered label: `fib 61.8% (1d)`, `fair-value gap bearish (1h)`, `order block bullish (1d)`. Annotate TF only when it adds signal.
+- When `sources` contains `MS_BOS_LEVEL` or `MS_CHOCH_LEVEL`, render as `break of structure {bullish|bearish} (tf)` or `change of character {bullish|bearish} (tf)` using `contributing_levels[*].meta.direction` and its TF.
 - Cap the source list at 4 tags. If more exist, pick the highest-TF and most structurally significant (MS > FIB/LIQ > FVG/OB).
 - Drop any zone with `abs(distance_pct) > 20` (pipeline already filters, but belt-and-suspenders).
 - **Drop `classification == "level"` zones** unless fewer than 2 zones remain on that side after Pass-3 — in that case, include the top single-source zone(s) as fallback to keep the section populated.
 - If a zone contains the current price (`min_price <= current_price <= max_price`), place it first in Suport with `[zona curentă]` instead of a percentage: `- **[zona curentă] {range}** — {label} · {sources}`.
-- Pool-overlap tags (`· BSL-pool ~Nh`, `· SSL-pool 3× 1w+1d`) still apply per the Liquidity section below — append them AFTER the sources block.
+- Pool-overlap tags (`· pool lichiditate buy-side ~Nh`, `· pool lichiditate sell-side 3× 1w+1d`) still apply per the Liquidity section below — append them AFTER the sources block.
 
 If fewer than 2 zones are in range on a side (after all filters), write instead: `Structura de {rezistență|suport} este subțire în intervalul relevant.`
 
 Examples:
 
 ```
-- **$5,612–$5,625** (+0.82%) — confluență puternică · FIB_618 (1d), LIQ_BSL, FVG_BEAR (1h)
-- **$5,490–$5,500** (−1.18%) — pivot structural · MS_CHOCH_LEVEL bearish (1d), OB_BULL (1d)
-- **1.0890–1.0915** (+0.55%) — confluență medie · FIB_500 (1d), LIQ_BSL
+- **$5,612–$5,625** (+0.82%) — confluență puternică · fib 61.8% (1d), lichiditate buy-side, fair-value gap bearish (1h)
+- **$5,490–$5,500** (−1.18%) — pivot structural · change of character bearish (1d), order block bullish (1d)
+- **1.0890–1.0915** (+0.55%) — confluență medie · fib 50% (1d), lichiditate buy-side
 ```
 
 ### Confluence combos to recognize
@@ -331,13 +374,13 @@ The `liquidity` section of the payload lists stop-cluster proxies derived from s
 This is a **second, orthogonal signal** — do NOT use it to upgrade or downgrade the zone classification (that label is owned by the pipeline). Liquidity gets its own treatment:
 
 **1. Pool overlaps a listed zone** (pool `price` is inside a Rezistență/Suport zone's `min_price`–`max_price`, OR within one `daily_atr` of it, AND the zone's `sources` already contains `LIQ_BSL` / `LIQ_SSL` or not):
-- Append a compact tag to that zone's bullet: `· BSL-pool ~Nh` (buy-side) or `· SSL-pool ~Nh` (sell-side).
-- If `swept == true`, append `(swept)` — still a reference level but the pull is spent.
-- Stack touches when notable: `· BSL-pool 3× 1w+1d` when `touches >= 3` and a high-TF contributes.
+- Append a compact tag to that zone's bullet: `· pool lichiditate buy-side ~Nh` or `· pool lichiditate sell-side ~Nh`.
+- If `swept == true`, append `(atinsă)` — still a reference level but the pull is spent.
+- Stack touches when notable: `· pool lichiditate buy-side 3× 1w+1d` when `touches >= 3` and a high-TF contributes.
 
 **2. Pool sits alone in dead space** (no listed zone within `daily_atr`, and `swept == false`, and in the top 2 of its side by `strength_score`):
 - Emit under `### Zone de liquidity` between Suport and Catalizatori.
-- Format: `- **{price}** (±X.X%) — {BSL|SSL} unswept · {tfs} · Nx touches · ~Nh`.
+- Format: `- **{price}** (±X.X%) — lichiditate {buy-side|sell-side} neatinsă · {tfs} · Nx atingeri · ~Nh`.
 - **Asset-class caveat** — softer language for forex/commodities:
   - `asset_class ∈ {forex, commodity}` → use *"potențial magnet de liquidity"* (there's no consolidated tape on FX; the pool is more hypothetical).
   - `asset_class ∈ {index, stock}` → *"magnet de liquidity"* is fine.
@@ -397,25 +440,25 @@ The `data/{slug}/briefing.md` file content should follow this exact structure:
 
 ### Context structural
 
-- **1w** — bullish (HH + HL) (ultima BOS: bullish la $5,480). Invalidare: $5,320.
-- **1d** — bullish (HH + HL) (ultima CHoCH: bullish la $5,498). Invalidare: $5,462.
+- **1w** — bullish (maxime/minime crescătoare) (ultimul break of structure: bullish la $5,480). Invalidare: $5,320.
+- **1d** — bullish (maxime/minime crescătoare) (ultimul change of character: bullish la $5,498). Invalidare: $5,462.
 - **1h** — range fără structură clară.
 
 **Pe scurt:** O mișcare sub 0.5 ATR în ultimele 24h lasă prețul S&P 500 între zona de rezistență de la $5,612–$5,625 și pivotul structural bullish de pe 1d. Structura HTF rămâne bullish, iar RSI pe 1h la 62 nu semnalează extensie întinsă. VIX ușor peste 18 sugerează precauție, dar nu la nivel de risk-off. CPI m/m este programat în ~3h (la 12:30 UTC), ceea ce reduce încrederea în structura actuală până la print.
 
 ### Rezistență
 
-- **$5,612–$5,625** (+1.27%) — confluență medie · FIB_618 (1d), LIQ_BSL
-- **$5,680–$5,695** (+2.53%) — pivot structural · MS_BOS_LEVEL bullish (1w), FVG_BEAR (1d)
+- **$5,612–$5,625** (+1.27%) — confluență medie · fib 61.8% (1d), lichiditate buy-side
+- **$5,680–$5,695** (+2.53%) — pivot structural · break of structure bullish (1w), fair-value gap bearish (1d)
 
 ### Suport
 
-- **$5,498–$5,510** (−0.62%) — pivot structural · MS_CHOCH_LEVEL bullish (1d), OB_BULL (1d)
-- **$5,440–$5,455** (−1.68%) — confluență medie · FIB_500 (1d), LIQ_SSL · SSL-pool 2× 1w+1d
+- **$5,498–$5,510** (−0.62%) — pivot structural · change of character bullish (1d), order block bullish (1d)
+- **$5,440–$5,455** (−1.68%) — confluență medie · fib 50% (1d), lichiditate sell-side · pool lichiditate sell-side 2× 1w+1d
 
 ### Zone de liquidity
 
-- **$5,720** (+3.21%) — BSL unswept · 1w · 2× touches · ~52h
+- **$5,720** (+3.21%) — lichiditate buy-side neatinsă · 1w · 2× atingeri · ~52h
 
 ### Catalizatori
 
